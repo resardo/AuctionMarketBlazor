@@ -1,0 +1,121 @@
+﻿@page "/auction/{AuctionId}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+@using AuctionBlazorWeb.Helpers
+@using AuctionBlazorWeb.Models
+@using System.Text.Json
+
+
+<h4 class="mb-4 pt-4">Auction Details</h4>
+
+@if (auction == null)
+{
+    <p class="text-secondary">Loading...</p>
+}
+else
+{
+    <div class="card mb-3 w-50">
+        <div class="card-body">
+            <p class="card-title"><b>@auction.Title</b></p>
+            <p class="card-text"><b>Description:</b> @auction.Description</p>
+            <p class="card-text"><b>Starting Price:</b> @auction.StartPrice</p>
+            <p class="card-text"><b>Highest Bid:</b> @highestBid</p>
+            <p class="card-text"><b>End Time:</b> @auction.EndTime.ToString("MM/dd/yyyy HH:mm:ss")</p>
+            @if (DateTime.UtcNow < auction.EndTime)
+            {
+                <p class="card-text"><b>Time Remaining:</b> @(string.Format("{0:dd} days {0:hh} hours {0:mm} minutes", (auction.EndTime - DateTime.UtcNow)))</p>
+            }
+            else
+            {
+                <p class="card-text text-danger">This auction has ended.</p>
+            }
+        </div>
+    </div>
+    <EditForm Model="@bidModel" OnValidSubmit="@PlaceBid" class="fw-bold w-50">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+        <div class="form-group mb-3">
+            <label for="bidAmount" class="form-label">Your Bid:</label>
+            <InputNumber id="bidAmount" @bind-Value="bidModel.Amount" class="form-control" />
+            <ValidationMessage For="@(() => bidModel.Amount)" class="text-danger" />
+        </div>
+        <button type="submit" class="btn btn-primary" disabled="@(DateTime.UtcNow >= auction.EndTime)">Place Bid</button>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public string AuctionId { get; set; }
+
+    
+    private AuctionModel auction;
+    private BidModel bidModel = new BidModel();
+
+    private string jwtToken;
+    private decimal highestBid;
+    private string userId;
+    protected override async Task OnInitializedAsync()
+    {
+        auction = await Http.GetFromJsonAsync<AuctionModel>(Constants.apiDevelopmentUrl + $"/api/Auction/{AuctionId}");
+        highestBid = await GetHighestBid(AuctionId);
+        highestBid = highestBid == 0m ? auction.StartPrice : highestBid;
+        jwtToken = await GetTokenAsync();
+        GetInfoFromToken(jwtToken);
+    }
+
+    private async Task PlaceBid()
+    {
+        var reqBid = new BidModel
+            { 
+                AuctionId = Guid.Parse(AuctionId),
+                UserId = Guid.Parse(userId),
+                Amount = bidModel.Amount,
+            };
+        var response = await Http.PostAsJsonAsync(Constants.apiDevelopmentUrl + $"/api/Bid/Register",reqBid);
+        if (response.IsSuccessStatusCode)
+        {
+            highestBid = await GetHighestBid(AuctionId);
+            JSRuntime.InvokeVoidAsync("Success", "Your bid was successful");
+        }
+        else
+        {
+            var alertMessage = $"Error: {response.RequestMessage}";
+            await JSRuntime.InvokeVoidAsync("alert", alertMessage);
+        }
+    }
+
+    public async Task<decimal> GetHighestBid(string auctionId)
+    {
+        BidModel highestBid = null;
+        try
+        {
+            highestBid = await Http.GetFromJsonAsync<BidModel>(Constants.apiDevelopmentUrl + "/api/Bid/HighestBid/" + auctionId);
+            
+            return highestBid?.Amount ?? 0m; 
+        }
+        catch
+        {
+            return 0m;
+        }
+    }
+
+    private void GetInfoFromToken(string jwtToken)
+    {
+        var decodedPayload = JwtDecoder.DecodePayload(jwtToken);
+        var payloadObj = JsonDocument.Parse(decodedPayload).RootElement;
+
+        if (payloadObj.TryGetProperty("http://schemas.microsoft.com/ws/2008/06/identity/claims/serialnumber", out JsonElement nameElement))
+        {
+            userId = nameElement.GetString();
+        }
+
+    }
+
+    public async Task<string> GetTokenAsync()
+    {
+        return await JSRuntime.InvokeAsync<string>("localStorageFunctions.getItem", "jwtToken");
+    }
+  
+}

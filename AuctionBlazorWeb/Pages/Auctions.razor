@@ -1,0 +1,221 @@
+﻿@page "/"
+@using AuctionBlazorWeb.Helpers
+@using System.Text.Json
+@using AuctionBlazorWeb.Models
+@implements IDisposable
+
+
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+
+<h3>Current Auctions</h3>
+
+<button class="btn btn-success" @onclick="CreateNewAuction">Create New Auction</button>
+
+
+@if (auctions == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th>Seller</th>
+                <th>TopBid</th>
+                <th>Time Remaining</th>
+                <th>Actions</th>
+                
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var auction in auctions)
+        {
+            <tr>
+                 @if (auction.IsAvailable)
+                {
+                        <td><a href="@($"/auction/{auction.AuctionId}")">@auction.Title</a></td>
+                    }
+                    else
+                    {
+                        @auction.Title
+                    }
+                    <td>@auction.User.Username</td>
+                <td>@highestBids[auction.AuctionId]</td>
+                @if (auction.IsAvailable)
+                {
+                        <td>@(string.Format("{0:dd} days {0:hh} hours", (auction.EndTime - DateTime.UtcNow)))</td>
+                    }
+                    else
+                    {
+                        <p>This auction has ended.</p>
+                        
+                }
+                @if (@auction.User.Username == userName && auction.IsAvailable)
+                {
+                   <td><button class="btn btn-danger" @onclick="(() => DeleteAuction(auction.AuctionId))">DeleteAuction</button></td>
+                }
+            </tr>
+        }
+        </tbody>
+    </table>
+    
+}
+
+@code {
+    private List<AuctionsModel> auctions;
+    private BidModel highestBid;
+    private List<Guid> closedAuctions = new();
+    private Dictionary<Guid, decimal> highestBids = new();
+    private Timer _auctionCheckTimer;
+
+    private string jwtToken;
+    private string userName;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        auctions = await GetAllAuctions();
+
+        foreach (var auction in auctions)
+        {
+            auction.IsAvailable = auction.EndTime > DateTime.UtcNow;
+            var highestBidAmount = await GetHighestBid(auction.AuctionId.ToString());
+            highestBids[auction.AuctionId] = highestBidAmount == 0m ? auction.StartPrice : highestBidAmount;
+            
+        }
+        jwtToken = await GetTokenAsync();
+        if (string.IsNullOrEmpty(jwtToken))
+        {
+            RedirectToLogin();
+
+        }
+        else{ GetInfoFromToken(jwtToken); }
+
+        StartAuctionCheckTimer();
+
+
+    }
+    private async Task<List<AuctionsModel>> GetAllAuctions()
+    {
+        return await Http.GetFromJsonAsync<List<AuctionsModel>>(Constants.apiDevelopmentUrl + "/api/Auction/getAllAuctions");
+    }
+
+    private void CreateNewAuction()
+    {
+        NavigationManager.NavigateTo("/create-auction");
+    }
+    private void RedirectToLogin()
+    {
+        NavigationManager.NavigateTo("/login");
+    }
+    private async void DeleteAuction(Guid auctionId)
+    {
+        var response =await Http.PutAsJsonAsync(Constants.apiDevelopmentUrl + "/api/Auction/Delete/" + auctionId.ToString(), new { });
+        if (response.IsSuccessStatusCode)
+        {
+            JSRuntime.InvokeVoidAsync("success", "This auction was deleted!");
+            auctions = await GetAllAuctions();
+            StateHasChanged();
+        }
+        else
+        {
+            JSRuntime.InvokeVoidAsync("error", response.RequestMessage);
+        }
+
+    }
+
+    public async Task<decimal> GetHighestBid(string auctionId)
+    {
+        highestBid = null;
+        try
+        {
+            highestBid = await Http.GetFromJsonAsync<BidModel>(Constants.apiDevelopmentUrl + "/api/Bid/HighestBid/" + auctionId);
+            return highestBid?.Amount ?? 0m; 
+        }
+        catch
+        {
+            return 0m;
+        }
+    }
+    private async void CloseAuction(string auctionId)
+    {
+       var response = await Http.PutAsJsonAsync($"{Constants.apiDevelopmentUrl}/api/Auction/Close/{auctionId}", new { });
+        if (response.IsSuccessStatusCode)
+        {
+            var auction = auctions.FirstOrDefault(a => a.AuctionId.ToString() == auctionId);
+            if (auction != null)
+            {
+                auction.IsAvailable = false; 
+                await InvokeAsync(StateHasChanged); 
+            }
+        }
+        else
+        {
+            var alertMessage = $"Error closing auction: {response.StatusCode}";
+            await JSRuntime.InvokeVoidAsync("alert", alertMessage);
+        }
+    }
+
+    public async Task<string> GetTokenAsync()
+    {
+        return await JSRuntime.InvokeAsync<string>("localStorageFunctions.getItem", "jwtToken");
+    }
+
+    private void GetInfoFromToken(string jwtToken)
+    {
+       var decodedPayload = JwtDecoder.DecodePayload(jwtToken);
+       var payloadObj = JsonDocument.Parse(decodedPayload).RootElement;
+
+       if (payloadObj.TryGetProperty("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name", out JsonElement nameElement))
+            {
+                userName = nameElement.GetString();
+            }
+
+    }
+
+    private void StartAuctionCheckTimer()
+    {
+        _auctionCheckTimer?.Dispose(); 
+        _auctionCheckTimer = new Timer(_ =>
+    {
+        var now = DateTime.UtcNow;
+        var auctionsToEnd = auctions.Where(auction => auction.EndTime <= now && auction.IsAvailable).ToList();
+        foreach (var auction in auctionsToEnd)
+        {
+
+            // Use Task.Run to handle asynchronous operation
+            var task = Task.Run(() => CloseAuction(auction.AuctionId.ToString()));
+            task.ConfigureAwait(false); // Optionally add this to avoid capturing the synchronization context
+        }
+    }, null, TimeSpan.Zero, TimeSpan.FromMinutes(2)); 
+    }
+
+    private void CheckAndUpdateAuctions(object state)
+    {
+        var anyUpdated = false;
+        foreach (var auction in auctions)
+        {
+            if (auction.EndTime <= DateTime.UtcNow && auction.IsAvailable)
+            {
+                auction.IsAvailable = false; // Update status to reflect that the auction has ended
+                anyUpdated = true;
+            }
+        }
+
+        if (anyUpdated)
+        {
+            InvokeAsync(StateHasChanged); 
+        }
+    }
+
+    public void Dispose()
+    {
+        _auctionCheckTimer?.Dispose();
+    }
+    
+}

@@ -1,0 +1,54 @@
+﻿@page "/login"
+@using AuctionBlazorWeb.Helpers
+@using AuctionBlazorWeb.Models
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject IConfiguration _configuration
+@inject IJSRuntime JSRuntime
+
+<h3>Login</h3>
+
+<EditForm Model="@loginModel" OnValidSubmit="@HandleLogin" class="w-50">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="username">Username</label>
+        <InputText id="username" class="form-control" @bind-Value="loginModel.Username" />
+    </div>
+    
+    <div class="form-group">
+        <label for="password">Password</label>
+        <InputText id="password" type="password" class="form-control" @bind-Value="loginModel.Password" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Login</button>
+</EditForm>
+
+@code {
+    private LoginModel loginModel = new LoginModel();
+
+    private async Task HandleLogin()
+    {
+        
+        var response = await Http.PostAsJsonAsync(Constants.apiDevelopmentUrl + "/api/Login/loginAuthentication", loginModel);
+        if (response.IsSuccessStatusCode)
+        {
+            // Handle successful login, set the token, and redirect
+            var token = await response.Content.ReadAsStringAsync();
+            SaveTokenAsync(token);
+            // Save the token in a secure place
+            NavigationManager.NavigateTo("/");
+        }
+        else
+        {
+            var alertMessage = $"Error: {response.StatusCode}";
+            await JSRuntime.InvokeVoidAsync("alert", alertMessage);
+        }
+    }
+    public async Task SaveTokenAsync(string token)
+    {
+        await JSRuntime.InvokeVoidAsync("localStorageFunctions.setItem", "jwtToken", token);
+    }
+   
+}
