@@ -15,7 +15,7 @@
 <div class="container-fluid">
     <div class="row">
         <!-- Sidebar -->
-        <div class="col-md-3 col-lg-2 d-md-block bg-light sidebar">
+        <div class="col-12 col-sm-4 col-md-3 col-lg-2 d-md-block bg-light sidebar">
             <NavMenu />
             <!-- Authentication and User Info -->
             @if (!string.IsNullOrEmpty(jwtToken)) {
@@ -32,7 +32,7 @@
         </div>
 
         <!-- Page Content -->
-        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+        <div class="col-12 col-sm-8 col-md-9 col-lg-10 px-md-4">
             <nav class="navbar navbar-expand-lg navbar-light bg-light">
                 <div class="container-fluid">
                     <a class="navbar-brand" href="/">Auctions Marketplace</a>
@@ -54,6 +54,7 @@
         </div>
     </div>
 </div>
+
 
 
 
@@ -83,7 +84,7 @@
         else
         {
             GetInfoFromToken(jwtToken);
-            var user = await Http.GetFromJsonAsync<UserModel>(Constants.apiDevelopmentUrl + $"/api/User/{userId}");
+            var user = await Http.GetFromJsonAsync<UserModel>($"/api/User/{userId}");
             WalletService.UpdateWallet(user.Wallet);
             userName = user.Username;
             textValue = "LogOut";

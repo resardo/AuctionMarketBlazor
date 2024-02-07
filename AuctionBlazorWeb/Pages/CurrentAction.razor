@@ -57,19 +57,27 @@ else
     private AuctionModel auction;
     private BidModel bidModel = new BidModel();
 
-   
+
     private string jwtToken;
     private decimal highestBid;
     private string userId;
     protected override async Task OnInitializedAsync()
     {
-        
-        auction = await Http.GetFromJsonAsync<AuctionModel>($"/api/Auction/{AuctionId}");
-        highestBid = await GetHighestBid(AuctionId);
-        highestBid = highestBid == 0m ? auction.StartPrice : highestBid;
         jwtToken = await GetTokenAsync();
-        GetInfoFromToken(jwtToken);
-        
+        if (string.IsNullOrEmpty(jwtToken))
+        {
+            RedirectToLogin();
+        }
+        else
+        {
+            auction = await Http.GetFromJsonAsync<AuctionModel>($"/api/Auction/{AuctionId}");
+
+            highestBid = await GetHighestBid(AuctionId);
+            highestBid = highestBid == 0m ? auction.StartPrice : highestBid;
+
+            jwtToken = await GetTokenAsync();
+            GetInfoFromToken(jwtToken);
+        }
     }
 
     private async Task PlaceBid()
@@ -90,7 +98,7 @@ else
         }
         else
         {
-            var alertMessage = $"Error: {response.RequestMessage}";
+            var alertMessage = $"Error: {response.StatusCode}";
             await JSRuntime.InvokeVoidAsync("alert", alertMessage);
         }
     }
@@ -127,5 +135,9 @@ else
         return await JSRuntime.InvokeAsync<string>("localStorageFunctions.getItem", "jwtToken");
     }
 
+     private void RedirectToLogin()
+    {
+        NavigationManager.NavigateTo("/login");
+    }
   
 }

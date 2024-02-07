@@ -20,11 +20,13 @@
     <div class="form-group mb-3">
         <label for="title" class="form-label">Title</label>
         <InputText id="title" class="form-control" @bind-Value="newAuction.Title" />
+        <ValidationMessage For="@(() => newAuction.Title)" />
     </div>
 
     <div class="form-group mb-3">
         <label for="description" class="form-label">Description</label>
         <InputTextArea id="description" class="form-control" @bind-Value="newAuction.Description" rows="3" />
+        <ValidationMessage For="@(() => newAuction.Description)" />
     </div>
 
     <div class="form-group mb-3">
@@ -35,11 +37,14 @@
     <div class="form-group mb-3">
         <label for="endTime" class="form-label">End Time</label>
         <InputDate id="endTime" class="form-control" @bind-Value="newAuction.EndTime" />
+        <ValidationMessage For="@(() => newAuction.EndTime)" />
+       
     </div>
 
     <div class="form-group mb-3">
         <label for="startPrice" class="form-label">Start Price</label>
         <InputNumber id="startPrice" class="form-control" @bind-Value="newAuction.StartPrice" />
+        <ValidationMessage For="@(() => newAuction.StartPrice)" />
     </div>
 
     <button type="submit" class="btn btn-primary mt-2">Create Auction</button>
@@ -56,6 +61,10 @@
     protected override async Task OnInitializedAsync()
     {
         jwtToken = await GetTokenAsync();
+        if (string.IsNullOrEmpty(jwtToken))
+        {
+            RedirectToLogin();
+        }
         GetInfoFromToken(jwtToken); 
     }
     private async Task HandleCreateAuction()
@@ -89,5 +98,8 @@
         return await JSRuntime.InvokeAsync<string>("localStorageFunctions.getItem", "jwtToken");
     }
 
-   
+    private void RedirectToLogin()
+    {
+        NavigationManager.NavigateTo("/login");
+    }
 }
