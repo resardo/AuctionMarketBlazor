@@ -55,7 +55,7 @@
     private async Task HandleRegistration()
     {
         registerModel.RoleId = new List<Guid>();
-        var response = await Http.PostAsJsonAsync(Constants.apiDevelopmentUrl + "/api/User/Register", registerModel);
+        var response = await Http.PostAsJsonAsync("/api/User/Register", registerModel);
 
         if (response.IsSuccessStatusCode)
         {

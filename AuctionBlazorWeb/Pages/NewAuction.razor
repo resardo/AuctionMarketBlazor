@@ -61,7 +61,7 @@
     private async Task HandleCreateAuction()
     {
         newAuction.UserId = Guid.Parse(userId);
-        var response = await Http.PostAsJsonAsync(Constants.apiDevelopmentUrl+"/api/Auction/Register", newAuction);
+        var response = await Http.PostAsJsonAsync("/api/Auction/Register", newAuction);
         if (response.IsSuccessStatusCode)
         {
              NavigationManager.NavigateTo("/");

@@ -31,13 +31,13 @@
     private async Task HandleLogin()
     {
         
-        var response = await Http.PostAsJsonAsync(Constants.apiDevelopmentUrl + "/api/Login/loginAuthentication", loginModel);
+        var response = await Http.PostAsJsonAsync("/api/Login/loginAuthentication", loginModel);
         if (response.IsSuccessStatusCode)
         {
-            // Handle successful login, set the token, and redirect
+            
             var token = await response.Content.ReadAsStringAsync();
             SaveTokenAsync(token);
-            // Save the token in a secure place
+            
             NavigationManager.NavigateTo("/");
         }
         else

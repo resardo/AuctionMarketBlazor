@@ -1,11 +1,15 @@
-﻿@page "/auction/{AuctionId}"
+﻿@using AuctionBlazorWeb.Helpers
+@using AuctionBlazorWeb.Models
+@using System.Text.Json
+
+
+@page "/auction/{AuctionId}"
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
 
-@using AuctionBlazorWeb.Helpers
-@using AuctionBlazorWeb.Models
-@using System.Text.Json
+
+
 
 
 <h4 class="mb-4 pt-4">Auction Details</h4>
@@ -49,35 +53,40 @@ else
     [Parameter]
     public string AuctionId { get; set; }
 
-    
+
     private AuctionModel auction;
     private BidModel bidModel = new BidModel();
 
+   
     private string jwtToken;
     private decimal highestBid;
     private string userId;
     protected override async Task OnInitializedAsync()
     {
-        auction = await Http.GetFromJsonAsync<AuctionModel>(Constants.apiDevelopmentUrl + $"/api/Auction/{AuctionId}");
+        
+        auction = await Http.GetFromJsonAsync<AuctionModel>($"/api/Auction/{AuctionId}");
         highestBid = await GetHighestBid(AuctionId);
         highestBid = highestBid == 0m ? auction.StartPrice : highestBid;
         jwtToken = await GetTokenAsync();
         GetInfoFromToken(jwtToken);
+        
     }
 
     private async Task PlaceBid()
     {
+        
         var reqBid = new BidModel
             { 
                 AuctionId = Guid.Parse(AuctionId),
                 UserId = Guid.Parse(userId),
                 Amount = bidModel.Amount,
             };
-        var response = await Http.PostAsJsonAsync(Constants.apiDevelopmentUrl + $"/api/Bid/Register",reqBid);
+        var response = await Http.PostAsJsonAsync($"/api/Bid/Register",reqBid);
         if (response.IsSuccessStatusCode)
         {
             highestBid = await GetHighestBid(AuctionId);
             JSRuntime.InvokeVoidAsync("Success", "Your bid was successful");
+            NavigationManager.NavigateTo("/");
         }
         else
         {
@@ -91,7 +100,7 @@ else
         BidModel highestBid = null;
         try
         {
-            highestBid = await Http.GetFromJsonAsync<BidModel>(Constants.apiDevelopmentUrl + "/api/Bid/HighestBid/" + auctionId);
+            highestBid = await Http.GetFromJsonAsync<BidModel>("/api/Bid/HighestBid/" + auctionId);
             
             return highestBid?.Amount ?? 0m; 
         }
@@ -117,5 +126,6 @@ else
     {
         return await JSRuntime.InvokeAsync<string>("localStorageFunctions.getItem", "jwtToken");
     }
+
   
 }

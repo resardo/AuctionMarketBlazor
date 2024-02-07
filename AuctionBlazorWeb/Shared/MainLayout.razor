@@ -1,9 +1,11 @@
 ﻿@using AuctionBlazorWeb.Helpers
 @using System.Text.Json
 @using AuctionBlazorWeb.Models
+@using AuctionBlazorWeb.Services
 @implements IDisposable
 
 @inject HttpClient Http
+@inject WalletService WalletService
 @inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
 @inject NavigationManager NavigationManager
@@ -19,7 +21,7 @@
             @if (!string.IsNullOrEmpty(jwtToken)) {
                 <div class="px-3 py-2">
                     <p class="text-success">Hi, @userName</p>
-                    <p class="text-success">Wallet: @wallet</p>
+                    <p class="text-success">Wallet: @WalletService.WalletBalance</p>
                     <button class="btn btn-outline-success w-100" @onclick="RedirectToLogout">@textValue</button>
                 </div>
             } else {
@@ -59,11 +61,12 @@
 @code {
     private string userId;
     private string userName;
-    private decimal wallet;
+    //private decimal wallet;
     private string jwtToken;
     private string textValue="";
     protected override async Task OnInitializedAsync()
     {
+        WalletService.OnChange += StateHasChanged;
         NavigationManager.LocationChanged += HandleLocationChanged;
         await CheckAndUpdateAuthenticationState();
     }
@@ -81,7 +84,7 @@
         {
             GetInfoFromToken(jwtToken);
             var user = await Http.GetFromJsonAsync<UserModel>(Constants.apiDevelopmentUrl + $"/api/User/{userId}");
-            wallet = user.Wallet;
+            WalletService.UpdateWallet(user.Wallet);
             userName = user.Username;
             textValue = "LogOut";
             StateHasChanged(); // Ensure UI updates if state changes
@@ -135,6 +138,7 @@
     }
     public void Dispose()
         {
+            WalletService.OnChange -= StateHasChanged;
             NavigationManager.LocationChanged -= HandleLocationChanged;
         }
 }
