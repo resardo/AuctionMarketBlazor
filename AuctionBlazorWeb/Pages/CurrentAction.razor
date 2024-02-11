@@ -39,7 +39,7 @@ else
     </div>
     <EditForm Model="@bidModel" OnValidSubmit="@PlaceBid" class="fw-bold w-50">
         <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger" />
+        
         <div class="form-group mb-3">
             <label for="bidAmount" class="form-label">Your Bid:</label>
             <InputNumber id="bidAmount" @bind-Value="bidModel.Amount" class="form-control" />
@@ -82,7 +82,7 @@ else
 
     private async Task PlaceBid()
     {
-        
+
         var reqBid = new BidModel
             { 
                 AuctionId = Guid.Parse(AuctionId),
@@ -98,7 +98,8 @@ else
         }
         else
         {
-            var alertMessage = $"Error: {response.StatusCode}";
+            var response1 = await response.Content.ReadFromJsonAsync<ErrorModel>();
+            var alertMessage = $"{response1.Message}";
             await JSRuntime.InvokeVoidAsync("alert", alertMessage);
         }
     }

@@ -10,7 +10,8 @@
 @inject IJSRuntime JSRuntime
 @inject WalletService WalletService
 
-<h3>Current Auctions</h3>
+
+<h3 class="pb-3 pt-3">Current Auctions</h3>
 
 <button class="btn btn-success" @onclick="CreateNewAuction">Create New Auction</button>
 
@@ -42,7 +43,7 @@ else
                     }
                     <td>@auction.User.Username</td>
                     <td>@highestBids[auction.AuctionId]</td>
-                    <td>@(auction.IsAvailable ? $"{(auction.EndTime - DateTime.UtcNow):dd} days {(auction.EndTime - DateTime.UtcNow):hh} hours" : "This auction has ended.")</td>
+                    <td>@(auction.IsAvailable ? $"{(auction.EndTime - DateTime.UtcNow):dd} days {(auction.EndTime - DateTime.UtcNow):hh} hours {(auction.EndTime - DateTime.UtcNow):mm} minutes" : "This auction has ended.")</td>
                     @if (auction.User.Username == userName && auction.IsAvailable)
                     {
                         <td><button class="btn btn-danger" @onclick="(() => DeleteAuction(auction.AuctionId))">Delete Auction</button></td>
